@@ -1,0 +1,27 @@
+# Dataset (externí)
+dataset_private/
+dataset/
+data/
+
+# Videa a obrázky
+*.mp4
+*.avi
+*.mov
+*.jpg
+*.png
+
+# Váhy modelu
+*.pt
+*.pth
+checkpoints/
+runs/
+
+# Lokální config
+config.yaml
+.env
+
+# Python
+__pycache__/
+*.pyc
+.DS_Store
+.venv/
