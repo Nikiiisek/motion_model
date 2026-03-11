@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 
 from motion_models.data_utils.dataset_fixedlen import FixedLenVideoDataset
 from motion_models.data_utils.transforms import get_train_transforms, get_val_transforms
-from motion_models.models.mobilenet_small import MobileNetV3SmallBaseline
+from motion_models.models.mobilenet_lstm import MobileNetV3SmallLSTM
 from motion_models.data_utils.seed import set_seed
 
 
@@ -86,7 +86,7 @@ def main():
     batch_size = 4
     num_workers = 0
     num_epochs = 15
-    learning_rate = 1e-3
+    learning_rate = 5e-4
 
     train_dataset = FixedLenVideoDataset(
         root_dir=train_dir,
@@ -141,7 +141,7 @@ def main():
         print("example video_ids:", video_ids[:2])
         break
 
-    model = MobileNetV3SmallBaseline(
+    model = MobileNetV3SmallLSTM(
         num_classes=num_classes,
         pretrained=True
     ).to(device)
@@ -161,7 +161,7 @@ def main():
     )
 
     best_val_loss = float("inf")
-    save_path = Path("best_mobilenet_small_baseline.pth")
+    save_path = Path("best_mobilenet_small_lstm.pth")
 
     for epoch in range(num_epochs):
         train_loss, train_acc = train_one_epoch(
