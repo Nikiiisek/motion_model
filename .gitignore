@@ -16,6 +16,10 @@ data/
 checkpoints/
 runs/
 
+# Logy a reporty
+*.log
+*.txt
+
 # Lokální config
 config.yaml
 .env

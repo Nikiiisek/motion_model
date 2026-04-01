@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
+from config import PROCESSED_DIR
 from motion_models.data_utils.dataset_fixedlen import FixedLenVideoDataset
 from motion_models.data_utils.transforms import get_train_transforms, get_val_transforms
 from motion_models.models.mobilenet_lstm import MobileNetV3SmallLSTM
@@ -105,7 +106,12 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    data_root = Path("/Users/nikolpavlovska/PycharmProjects/dataset_private/processed_16f")
+    data_root = PROCESSED_DIR
+
+    print("data_root:", data_root)
+    print("train exists:", (data_root / "train").exists())
+    print("val exists:", (data_root / "val").exists())
+    print("test exists:", (data_root / "test").exists())
 
     train_dir = data_root / "train"
     val_dir = data_root / "val"
@@ -192,7 +198,11 @@ def main():
     )
 
     best_val_loss = float("inf")
-    save_path = Path("best_mobilenet_small_lstm.pth")
+    experiment_name = "mobilenet_small_lstm_baseline_5ep"
+    save_path = Path(f"best_{experiment_name}.pth")
+
+    log_path = Path(f"{experiment_name}_results.txt")
+
 
     for epoch in range(num_epochs):
         train_loss, train_acc = train_one_epoch(
@@ -244,6 +254,28 @@ def main():
 
             all_preds.extend(preds.cpu().tolist())
             all_labels.extend(labels.cpu().tolist())
+
+    with open(log_path, "w") as f:
+        f.write(f"Experiment: {experiment_name}\n")
+        f.write(f"Epochs: {num_epochs}\n")
+        f.write(f"Learning rate: {learning_rate}\n")
+        f.write("\n")
+
+        f.write(f"Final Train Loss: {train_loss:.4f}\n")
+        f.write(f"Final Train Acc: {train_acc:.4f}\n")
+        f.write(f"Final Val Loss: {val_loss:.4f}\n")
+        f.write(f"Final Val Acc: {val_acc:.4f}\n")
+        f.write(f"Best Val Loss: {best_val_loss:.4f}\n")
+
+        f.write("\n")
+        f.write(f"Test Loss: {test_loss:.4f}\n")
+        f.write(f"Test Acc: {test_acc:.4f}\n")
+
+        f.write("\nConfusion Matrix:\n")
+        f.write(str(confusion_matrix(all_labels, all_preds)))
+
+        f.write("\n\nClassification Report:\n")
+        f.write(classification_report(all_labels, all_preds, target_names=class_names))
 
     print("Confusion Matrix:")
     print(confusion_matrix(all_labels, all_preds))
