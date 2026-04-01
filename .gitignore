@@ -19,6 +19,7 @@ runs/
 # Logy a reporty
 *.log
 *.txt
+reports/
 
 # Lokální config
 config.yaml

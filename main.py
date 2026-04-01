@@ -122,7 +122,7 @@ def main():
 
     batch_size = 4
     num_workers = 0
-    num_epochs = 5
+    num_epochs = 10
     learning_rate = 5e-4
 
     train_dataset = FixedLenVideoDataset(
@@ -198,7 +198,7 @@ def main():
     )
 
     best_val_loss = float("inf")
-    experiment_name = "mobilenet_small_lstm_baseline_5ep"
+    experiment_name = "mobilenet_small_lstm_baseline_10ep"
     save_path = Path(f"best_{experiment_name}.pth")
 
     log_path = Path(f"{experiment_name}_results.txt")
