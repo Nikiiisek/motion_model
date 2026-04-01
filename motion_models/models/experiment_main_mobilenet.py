@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 from config import PROCESSED_DIR
 from motion_models.data_utils.dataset_fixedlen import FixedLenVideoDataset
 from motion_models.data_utils.transforms import get_train_transforms, get_val_transforms
-from motion_models.models.ConvLSTM_many_to_one import ConvLSTMManyToOne
+from motion_models.models.mobilenet_lstm import MobileNetV3SmallLSTM
 from motion_models.data_utils.seed import set_seed
 
 
@@ -69,7 +69,6 @@ def validate_one_epoch(model, loader, criterion, device):
 
     return epoch_loss, epoch_acc
 
-
 @torch.no_grad()
 def list_wrong_predictions(model, loader, device, class_names):
     model.eval()
@@ -101,7 +100,6 @@ def list_wrong_predictions(model, loader, device, class_names):
 
     return wrong
 
-
 def main():
     set_seed(42)
 
@@ -122,10 +120,10 @@ def main():
     class_names = ["T", "pase"]
     num_classes = len(class_names)
 
-    batch_size = 2
+    batch_size = 4
     num_workers = 0
     num_epochs = 10
-    learning_rate = 1e-3
+    learning_rate = 5e-4
 
     train_dataset = FixedLenVideoDataset(
         root_dir=train_dir,
@@ -179,11 +177,9 @@ def main():
         print("example video_ids:", video_ids[:2])
         break
 
-    model = ConvLSTMManyToOne(
-        in_channels=3,
-        hidden_channels=16,
-        kernel_size=3,
-        num_classes=num_classes
+    model = MobileNetV3SmallLSTM(
+        num_classes=num_classes,
+        pretrained=True
     ).to(device)
 
     criterion = nn.CrossEntropyLoss()
@@ -201,9 +197,11 @@ def main():
     )
 
     best_val_loss = float("inf")
-    experiment_name = "convlstm_baseline_10ep"
+    experiment_name = "mobilenet_small_lstm_color_aug_10ep"
     save_path = Path(f"best_{experiment_name}.pth")
+
     log_path = Path(f"{experiment_name}_results.txt")
+
 
     for epoch in range(num_epochs):
         train_loss, train_acc = train_one_epoch(
@@ -232,6 +230,7 @@ def main():
 
     print("Training finished.")
 
+    # načtení nejlepšího modelu a finální validace/test
     model.load_state_dict(torch.load(save_path, map_location=device))
 
     test_loss, test_acc = validate_one_epoch(
@@ -284,7 +283,6 @@ def main():
     print(classification_report(all_labels, all_preds, target_names=class_names))
 
     wrong = list_wrong_predictions(model, test_loader, device, class_names)
-
 
 if __name__ == "__main__":
     main()

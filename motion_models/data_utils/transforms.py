@@ -2,7 +2,7 @@ from torchvision import transforms
 
 def get_train_transforms():
     return transforms.Compose([
-        transforms.Resize((224, 224)),
+        transforms.Resize((112, 112)),
         transforms.ToTensor(),
         transforms.Normalize(
             mean=[0.485, 0.456, 0.406],
@@ -13,7 +13,7 @@ def get_train_transforms():
 
 def get_val_transforms():
     return transforms.Compose([
-        transforms.Resize((224, 224)),
+        transforms.Resize((112, 112)),
         transforms.ToTensor(),
         transforms.Normalize(
             mean=[0.485, 0.456, 0.406],

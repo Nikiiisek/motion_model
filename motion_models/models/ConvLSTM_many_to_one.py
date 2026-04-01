@@ -2,74 +2,44 @@ import torch
 import torch.nn as nn
 from ConvLSTM_cell import ConvLSTMCell
 
-torch.manual_seed(42)
-
-batch = 1
-seq_len = 3
-channels = 1
-height = 2
-width = 2
-hidden_channels = 2
-num_classes = 3
-
-x = torch.randn(batch, seq_len, channels, height, width)
-print("Vstup")
-print(x)
-print("Tvar vstupu", x.shape)
-
 
 class ConvLSTMManyToOne(nn.Module):
-    def __init__(self, in_channels, hidden_channels, kernel_size, height, width, num_classes):
+    def __init__(self, in_channels=3, hidden_channels=32, num_classes=2):
         super().__init__()
 
-        self.hidden_channels = hidden_channels
-        self.height = height
-        self.width = width
+        self.stem = nn.Sequential(
+            nn.Conv2d(in_channels, 16, kernel_size=3, stride=2, padding=1),  # 224 -> 112
+            nn.BatchNorm2d(16),
+            nn.ReLU(inplace=True),
 
-        self.cell = ConvLSTMCell(in_channels, hidden_channels, kernel_size)
+            nn.Conv2d(16, 32, kernel_size=3, stride=2, padding=1),            # 112 -> 56
+            nn.BatchNorm2d(32),
+            nn.ReLU(inplace=True),
+        )
 
-        self.classifier = nn.Linear(hidden_channels * height * width, num_classes)
+        self.cell = ConvLSTMCell(32, hidden_channels, kernel_size=3)
+
+        self.pool = nn.AdaptiveAvgPool2d((1, 1))
+        self.classifier = nn.Linear(hidden_channels, num_classes)
 
     def forward(self, x):
         batch, seq_len, channels, height, width = x.shape
+        device = x.device
 
-        h = torch.zeros(batch, self.hidden_channels, height, width)
-        c = torch.zeros(batch, self.hidden_channels, height, width)
+        first = self.stem(x[:, 0])
+        _, stem_channels, stem_h, stem_w = first.shape
 
-        for t in range(seq_len):
-            print(f"\n--- Krok {t} ---")
-            print("Frame vstup x[:, t] (tvar):", x[:, t].shape)
-            print(x[:, t])
+        h = torch.zeros(batch, self.cell.hidden_channels, stem_h, stem_w, device=device)
+        c = torch.zeros(batch, self.cell.hidden_channels, stem_h, stem_w, device=device)
 
-            h, c = self.cell(x[:, t], h, c)
+        h, c = self.cell(first, h, c)
 
-            print("Hidden tvar:", h.shape)
-            print("Hidden hodnoty:")
-            print(h)
+        for t in range(1, seq_len):
+            feat = self.stem(x[:, t])
+            h, c = self.cell(feat, h, c)
 
-        print("\nPoslední hidden state (h):")
-        print(h)
-
-        flat = h.reshape(batch, -1)
-        print("Flatten (tvar):", flat.shape)
-        print(flat)
-
-        out = self.classifier(flat)
-        print("Logits (tvar):", out.shape)
-        print(out)
+        out = self.pool(h)
+        out = out.flatten(1)
+        out = self.classifier(out)
 
         return out
-
-
-model = ConvLSTMManyToOne(
-    in_channels=channels,
-    hidden_channels=hidden_channels,
-    kernel_size=3,
-    height=height,
-    width=width,
-    num_classes=num_classes
-)
-
-output = model(x)
-
-print("Výstup", output.shape)
