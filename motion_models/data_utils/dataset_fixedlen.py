@@ -1,17 +1,23 @@
 from pathlib import Path
-from PIL import Image
+from PIL import Image, ImageEnhance
 
 import torch
 from torch.utils.data import Dataset
 
 import random
-from PIL import ImageEnhance
 
 
 class FixedLenVideoDataset(Dataset):
-    def __init__(self, root_dir, class_names=None, transform=None):
+    def __init__(
+        self,
+        root_dir,
+        class_names=None,
+        transform=None,
+        augment=False,
+    ):
         self.root_dir = Path(root_dir)
         self.transform = transform
+        self.augment = augment
 
         if class_names is None:
             self.class_names = sorted(
@@ -31,7 +37,6 @@ class FixedLenVideoDataset(Dataset):
                 continue
 
             for video_dir in sorted(class_dir.iterdir()):
-
                 if not video_dir.is_dir():
                     continue
 
@@ -48,31 +53,29 @@ class FixedLenVideoDataset(Dataset):
         return len(self.samples)
 
     def __getitem__(self, idx):
-
         frame_paths, label, video_id = self.samples[idx]
 
-        #náhodné hodnoty pro celý klip
-        brightness_factor = random.uniform(0.8, 1.2)
-        contrast_factor = random.uniform(0.8, 1.2)
+        if self.augment:
+            brightness_factor = random.uniform(0.8, 1.2)
+            contrast_factor = random.uniform(0.8, 1.2)
 
         frames = []
 
         for frame_path in frame_paths:
             img = Image.open(frame_path).convert("RGB")
 
-            #brightness
-            enhancer = ImageEnhance.Brightness(img)
-            img = enhancer.enhance(brightness_factor)
+            if self.augment:
+                enhancer = ImageEnhance.Brightness(img)
+                img = enhancer.enhance(brightness_factor)
 
-            #contrast
-            enhancer = ImageEnhance.Contrast(img)
-            img = enhancer.enhance(contrast_factor)
+                enhancer = ImageEnhance.Contrast(img)
+                img = enhancer.enhance(contrast_factor)
 
             if self.transform is not None:
                 img = self.transform(img)
 
             frames.append(img)
 
-        video_tensor = torch.stack(frames, dim=0)
+        video_tensor = torch.stack(frames, dim=0)  # (T, C, H, W)
 
         return video_tensor, label, video_id

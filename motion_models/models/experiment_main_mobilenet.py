@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
-from config import PROCESSED_DIR
+from motion_models.data_utils.config import PROCESSED_DIR
 from motion_models.data_utils.dataset_fixedlen import FixedLenVideoDataset
 from motion_models.data_utils.transforms import get_train_transforms, get_val_transforms
 from motion_models.models.mobilenet_lstm import MobileNetV3SmallLSTM

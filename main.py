@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
-from config import PROCESSED_DIR
+from motion_models.data_utils.config import PROCESSED_DIR
 from motion_models.data_utils.dataset_fixedlen import FixedLenVideoDataset
 from motion_models.data_utils.transforms import get_train_transforms, get_val_transforms
 from motion_models.models.ConvLSTM_many_to_one import ConvLSTMManyToOne
@@ -124,25 +124,28 @@ def main():
 
     batch_size = 2
     num_workers = 0
-    num_epochs = 10
+    num_epochs = 5
     learning_rate = 1e-3
 
     train_dataset = FixedLenVideoDataset(
         root_dir=train_dir,
         class_names=class_names,
-        transform=get_train_transforms()
+        transform=get_train_transforms(),
+        augment=False
     )
 
     val_dataset = FixedLenVideoDataset(
         root_dir=val_dir,
         class_names=class_names,
-        transform=get_val_transforms()
+        transform=get_val_transforms(),
+        augment=False
     )
 
     test_dataset = FixedLenVideoDataset(
         root_dir=test_dir,
         class_names=class_names,
-        transform=get_val_transforms()
+        transform=get_val_transforms(),
+        augment=False
     )
 
     print(f"Train samples: {len(train_dataset)}")
@@ -201,7 +204,7 @@ def main():
     )
 
     best_val_loss = float("inf")
-    experiment_name = "convlstm_baseline_10ep"
+    experiment_name = "convlstm_baseline_5ep"
     save_path = Path(f"best_{experiment_name}.pth")
     log_path = Path(f"{experiment_name}_results.txt")
 
