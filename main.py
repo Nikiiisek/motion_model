@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 from motion_models.data_utils.config import PROCESSED_DIR
 from motion_models.data_utils.dataset_fixedlen import FixedLenVideoDataset
 from motion_models.data_utils.transforms import get_train_transforms, get_val_transforms
-from motion_models.models.ConvLSTM_many_to_one import ConvLSTMManyToOne
+from motion_models.models.ConvLSTMv1 import ConvLSTM
 from motion_models.data_utils.seed import set_seed
 
 
@@ -182,7 +182,7 @@ def main():
         print("example video_ids:", video_ids[:2])
         break
 
-    model = ConvLSTMManyToOne(
+    model = ConvLSTM(
         in_channels=3,
         hidden_channels=16,
         kernel_size=3,
