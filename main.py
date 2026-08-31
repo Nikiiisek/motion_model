@@ -127,11 +127,12 @@ def main():
     num_epochs = 5
     learning_rate = 1e-3
 
+#přepnutí pro trénování a validaci u augmentovaných dat
     train_dataset = FixedLenVideoDataset(
         root_dir=train_dir,
         class_names=class_names,
         transform=get_train_transforms(),
-        augment=False
+        augment=True
     )
 
     val_dataset = FixedLenVideoDataset(
@@ -204,7 +205,7 @@ def main():
     )
 
     best_val_loss = float("inf")
-    experiment_name = "convlstm_baseline_5ep"
+    experiment_name = "convlstm_baseline_aug_5ep"
     save_path = Path(f"best_{experiment_name}.pth")
     log_path = Path(f"{experiment_name}_results.txt")
 
