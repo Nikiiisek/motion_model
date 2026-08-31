@@ -10,6 +10,7 @@ from motion_models.data_utils.dataset_fixedlen import FixedLenVideoDataset
 from motion_models.data_utils.transforms import get_train_transforms, get_val_transforms
 from motion_models.models.mobilenet_lstm import MobileNetV3SmallLSTM
 from motion_models.data_utils.seed import set_seed
+from motion_models.utils.experiment_logger import save_experiment_to_csv
 
 
 def train_one_epoch(model, loader, criterion, optimizer, device):
@@ -197,10 +198,26 @@ def main():
     )
 
     best_val_loss = float("inf")
-    experiment_name = "mobilenet_small_lstm_color_aug_10ep"
-    save_path = Path(f"best_{experiment_name}.pth")
+    best_val_acc = 0.0
+    best_epoch = 0
 
-    log_path = Path(f"{experiment_name}_results.txt")
+    dataset_version = "dataset_v2"
+    experiment_name = "baseline_10ep"
+
+    project_root = Path(__file__).resolve().parents[1]
+
+    report_dir = (
+        project_root
+        / "reports"
+        / dataset_version
+        / "mobilenet_lstm"
+        / experiment_name
+    )
+
+    report_dir.mkdir(parents=True, exist_ok=True)
+
+    save_path = report_dir / "best.pth"
+    log_path = report_dir / "results.txt"
 
 
     for epoch in range(num_epochs):
@@ -223,10 +240,19 @@ def main():
             f"Val Loss: {val_loss:.4f} | Val Acc: {val_acc:.4f}"
         )
 
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
-            torch.save(model.state_dict(), save_path)
-            print(f"Best model saved to: {save_path}")
+
+    if val_loss < best_val_loss:
+        best_val_loss = val_loss
+        best_val_acc = val_acc
+        best_epoch = epoch + 1
+
+        torch.save(model.state_dict(), save_path)
+
+        print(
+            f"Best model saved to: {save_path} "
+            f"(epoch {best_epoch}, val_loss={best_val_loss:.4f}, "
+            f"val_acc={best_val_acc:.4f})"
+        )
 
     print("Training finished.")
 
@@ -255,16 +281,29 @@ def main():
             all_labels.extend(labels.cpu().tolist())
 
     with open(log_path, "w") as f:
+        f.write(f"Dataset version: {dataset_version}\n")
         f.write(f"Experiment: {experiment_name}\n")
+        f.write("Model: MobileNetV3Small + LSTM\n")
+        f.write("Augmentation: none\n")
+        f.write("Input size: 112x112\n")
         f.write(f"Epochs: {num_epochs}\n")
         f.write(f"Learning rate: {learning_rate}\n")
-        f.write("\n")
+        f.write(f"Batch size: {batch_size}\n")
+        f.write("Seed: 42\n")
 
+        f.write("\nDataset sizes:\n")
+        f.write(f"Train samples: {len(train_dataset)}\n")
+        f.write(f"Val samples: {len(val_dataset)}\n")
+        f.write(f"Test samples: {len(test_dataset)}\n")
+
+        f.write("\n")
         f.write(f"Final Train Loss: {train_loss:.4f}\n")
         f.write(f"Final Train Acc: {train_acc:.4f}\n")
         f.write(f"Final Val Loss: {val_loss:.4f}\n")
         f.write(f"Final Val Acc: {val_acc:.4f}\n")
+        f.write(f"Best Epoch: {best_epoch}\n")
         f.write(f"Best Val Loss: {best_val_loss:.4f}\n")
+        f.write(f"Val acc at Best Epoch: {best_val_acc:.4f}\n")
 
         f.write("\n")
         f.write(f"Test Loss: {test_loss:.4f}\n")
@@ -282,7 +321,60 @@ def main():
     print("Classification Report:")
     print(classification_report(all_labels, all_preds, target_names=class_names))
 
-    wrong = list_wrong_predictions(model, test_loader, device, class_names)
+    wrong = list_wrong_predictions(
+        model,
+        test_loader,
+        device,
+        class_names
+    )
+
+    # Classification report také jako slovník kvůli uložení F1 do CSV
+    report_dict = classification_report(
+        all_labels,
+        all_preds,
+        target_names=class_names,
+        output_dict=True
+    )
+
+    macro_f1 = report_dict["macro avg"]["f1-score"]
+    weighted_f1 = report_dict["weighted avg"]["f1-score"]
+
+
+# Cesta k centrálnímu CSV se všemi experimenty
+    csv_path = project_root / "reports" / "experiments.csv"
+
+
+    experiment_data = {
+        "dataset": dataset_version,
+        "model": "MobileNetV3Small_LSTM",
+        "experiment": experiment_name,
+        "augmentation": "none",
+        "epochs": num_epochs,
+        "learning_rate": learning_rate,
+        "batch_size": batch_size,
+        "seed": 42,
+
+        "train_samples": len(train_dataset),
+        "val_samples": len(val_dataset),
+        "test_samples": len(test_dataset),
+
+        "best_epoch": best_epoch,
+        "best_val_loss": round(best_val_loss, 4),
+        "best_val_acc": round(best_val_acc, 4),
+        "test_loss": round(test_loss, 4),
+        "test_acc": round(test_acc, 4),
+
+        "macro_f1": round(macro_f1, 4),
+        "weighted_f1": round(weighted_f1, 4),
+    }
+
+
+    save_experiment_to_csv(
+        csv_path,
+        experiment_data
+    )
+
+    print(f"Experiment added to CSV: {csv_path}")
 
 if __name__ == "__main__":
     main()
