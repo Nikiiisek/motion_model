@@ -241,23 +241,30 @@ def main():
         )
 
 
-    if val_loss < best_val_loss:
-        best_val_loss = val_loss
-        best_val_acc = val_acc
-        best_epoch = epoch + 1
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            best_val_acc = val_acc
+            best_epoch = epoch + 1
 
-        torch.save(model.state_dict(), save_path)
+            torch.save(model.state_dict(), save_path)
 
-        print(
-            f"Best model saved to: {save_path} "
-            f"(epoch {best_epoch}, val_loss={best_val_loss:.4f}, "
-            f"val_acc={best_val_acc:.4f})"
-        )
+            print(
+                f"Best model saved to: {save_path} "
+                f"(epoch {best_epoch}, val_loss={best_val_loss:.4f}, "
+                f"val_acc={best_val_acc:.4f})"
+            )
 
     print("Training finished.")
 
     # načtení nejlepšího modelu a finální validace/test
-    model.load_state_dict(torch.load(save_path, map_location=device))
+    model.load_state_dict(
+        torch.load(
+            save_path,
+            map_location=device,
+            weights_only=True
+        )
+    )
+
 
     test_loss, test_acc = validate_one_epoch(
         model, test_loader, criterion, device
