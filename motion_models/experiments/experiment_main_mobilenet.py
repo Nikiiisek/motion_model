@@ -130,7 +130,7 @@ def main():
         root_dir=train_dir,
         class_names=class_names,
         transform=get_train_transforms(),
-        augment=True,
+        augment=False,
     )
 
     val_dataset = FixedLenVideoDataset(
@@ -205,7 +205,7 @@ def main():
     best_epoch = 0
 
     dataset_version = "dataset_v2"
-    experiment_name = "color_aug_10ep"
+    experiment_name = "baseline_10ep"
 
     project_root = Path(__file__).resolve().parents[1]
 
@@ -358,7 +358,7 @@ def main():
         "dataset": dataset_version,
         "model": "MobileNetV3Small_LSTM",
         "experiment": experiment_name,
-        "augmentation": "brightness_contrast",
+        "augmentation": "none",
         "epochs": num_epochs,
         "learning_rate": learning_rate,
         "batch_size": batch_size,
