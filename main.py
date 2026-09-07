@@ -135,13 +135,13 @@ def main():
     num_classes = len(class_names)
 
     batch_size = 2
-    num_workers = 0
-    num_epochs = 20
+    num_workers = 4
+    num_epochs = 40
     learning_rate = 0.001
 
     dataset_version = "dataset_v2"
-    experiment_name = "baseline_20ep"
-    augmentation_name = "none"
+    experiment_name = "colour_aug_40ep"
+    augmentation_name = "brightness_contrast"
 
     project_root = Path(__file__).resolve().parent / "motion_models"
 
@@ -166,7 +166,7 @@ def main():
         root_dir=train_dir,
         class_names=class_names,
         transform=get_train_transforms(),
-        augment=False,
+        augment=True,
     )
 
     val_dataset = FixedLenVideoDataset(
