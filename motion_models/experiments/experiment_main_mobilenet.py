@@ -1,11 +1,13 @@
 from pathlib import Path
 from sklearn.metrics import confusion_matrix, classification_report
 
+import csv
+import json
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
-from motion_models.data_utils.config import PROCESSED_DIR
+#from motion_models.data_utils.config import PROCESSED_DIR
 from motion_models.data_utils.dataset_fixedlen import FixedLenVideoDataset
 from motion_models.data_utils.transforms import get_train_transforms, get_val_transforms
 from motion_models.models.mobilenet_lstm import MobileNetV3SmallLSTM
@@ -107,7 +109,9 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    data_root = PROCESSED_DIR
+    data_root = Path(
+    "/home/nikol/Documents/dataset_private/processed_16f_subject_v2"
+)
 
     print("data_root:", data_root)
     print("train exists:", (data_root / "train").exists())
@@ -181,6 +185,14 @@ def main():
         print("example video_ids:", video_ids[:2])
         break
 
+    CHECK_ONLY = False
+
+    if CHECK_ONLY:
+        print("\nCHECK_ONLY = True")
+        print("Dataset byl pouze zkontrolován.")
+        print("Trénink se nespustí.")
+        return
+
     model = MobileNetV3SmallLSTM(
         num_classes=num_classes,
         pretrained=True
@@ -204,16 +216,18 @@ def main():
     best_val_acc = 0.0
     best_epoch = 0
 
-    dataset_version = "dataset_v2"
+    dataset_version = "split_subject_v2"
     experiment_name = "baseline_10ep"
 
-    project_root = Path(__file__).resolve().parents[1]
+    report_root = Path(
+        "/home/nikol/Documents/motion_modelsreports"
+    )
 
     report_dir = (
-        project_root
+        report_root
         / "reports"
         / dataset_version
-        / "mobilenet_lstm"
+        / "mobilenetv3_lstm"
         / experiment_name
     )
 
@@ -221,7 +235,36 @@ def main():
 
     save_path = report_dir / "best.pth"
     log_path = report_dir / "results.txt"
+    metrics_path = report_dir / "metrics.csv"
+    config_path = report_dir / "config.json"
+    classification_report_path = report_dir / "classification_report.txt"
+    
+    config = {
+        "dataset_version": dataset_version,
+        "dataset_path": str(data_root),
+        "split_type": "subject_independent",
+        "model": "MobileNetV3Small_LSTM",
+        "classes": class_names,
+        "num_classes": num_classes,
+        "num_frames": 16,
+        "input_size": "112x112",
+        "pretrained": True,
+        "augmentation": False,
+        "epochs": num_epochs,
+        "batch_size": batch_size,
+        "learning_rate": learning_rate,
+        "optimizer": "Adam",
+        "scheduler": "ReduceLROnPlateau",
+        "seed": 42,
+        "train_samples": len(train_dataset),
+        "val_samples": len(val_dataset),
+        "test_samples": len(test_dataset),
+    }
 
+    with open(config_path, "w", encoding="utf-8") as f:
+        json.dump(config, f, indent=4, ensure_ascii=False)
+
+    history = []
 
     for epoch in range(num_epochs):
         train_loss, train_acc = train_one_epoch(
@@ -243,6 +286,14 @@ def main():
             f"Val Loss: {val_loss:.4f} | Val Acc: {val_acc:.4f}"
         )
 
+        history.append({
+            "epoch": epoch + 1,
+            "learning_rate": current_lr,
+            "train_loss": train_loss,
+            "train_acc": train_acc,
+            "val_loss": val_loss,
+            "val_acc": val_acc,
+        })
 
         if val_loss < best_val_loss:
             best_val_loss = val_loss
@@ -258,6 +309,24 @@ def main():
             )
 
     print("Training finished.")
+
+    with open(metrics_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=[
+                "epoch",
+                "learning_rate",
+                "train_loss",
+                "train_acc",
+                "val_loss",
+                "val_acc",
+            ],
+        )
+
+    writer.writeheader()
+    writer.writerows(history)
+
+    print(f"Metrics saved to: {metrics_path}")
 
     # načtení nejlepšího modelu a finální validace/test
     model.load_state_dict(
@@ -328,8 +397,21 @@ def main():
     print("Confusion Matrix:")
     print(confusion_matrix(all_labels, all_preds))
 
+    classification_report_text = classification_report(
+        all_labels,
+        all_preds,
+        target_names=class_names
+    )
+
+    with open(
+        classification_report_path,
+        "w",
+        encoding="utf-8"
+    ) as f:
+        f.write(classification_report_text)
+
     print("Classification Report:")
-    print(classification_report(all_labels, all_preds, target_names=class_names))
+    print(classification_report_text)
 
     wrong = list_wrong_predictions(
         model,
@@ -351,7 +433,7 @@ def main():
 
 
 # Cesta k centrálnímu CSV se všemi experimenty
-    csv_path = project_root / "reports" / "experiments.csv"
+    csv_path = report_root / "experiments.csv"
 
 
     experiment_data = {
