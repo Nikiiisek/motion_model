@@ -1,6 +1,8 @@
 from pathlib import Path
 from sklearn.metrics import confusion_matrix, classification_report
 
+import csv
+import json
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -120,7 +122,9 @@ def main():
 
     print(f"Using device: {device}")
 
-    data_root = PROCESSED_DIR
+    data_root = Path(
+        "/home/nikol/Documents/dataset_private/processed_16f_subject_v2"
+    )
 
     print("data_root:", data_root)
     print("train exists:", (data_root / "train").exists())
@@ -136,18 +140,17 @@ def main():
 
     batch_size = 2
     num_workers = 4
-    num_epochs = 40
+    num_epochs = 30
     learning_rate = 0.001
 
-    dataset_version = "dataset_v2"
-    experiment_name = "colour_aug_40ep"
+    dataset_version = "split_subject_v2"
+    experiment_name = "colour_aug_30ep"
     augmentation_name = "brightness_contrast"
 
-    project_root = Path(__file__).resolve().parent / "motion_models"
+    project_root = Path("/home/nikol/Documents/motion_model/motion_models/reports")
 
     report_dir = (
         project_root
-        / "reports"
         / dataset_version
         / "convlstm"
         / experiment_name
@@ -161,6 +164,10 @@ def main():
     save_path = report_dir / "best.pth"
     log_path = report_dir / "results.txt"
 
+    metrics_path = report_dir / "metrics.csv"
+    config_path = report_dir / "config.json"
+    classification_report_path = report_dir / "classification_report.txt"
+    wrong_predictions_path = report_dir / "wrong_predictions.csv"
 
     train_dataset = FixedLenVideoDataset(
         root_dir=train_dir,
@@ -182,6 +189,35 @@ def main():
         transform=get_val_transforms(),
         augment=False,
     )
+
+    config = {
+        "dataset_version": dataset_version,
+        "dataset_path": str(data_root),
+        "split_type": "subject_independent",
+        "model": "ConvLSTM",
+        "classes": class_names,
+        "num_classes": num_classes,
+        "num_frames": 16,
+        "input_size": "112x112",
+        "augmentation": True,
+        "epochs": num_epochs,
+        "batch_size": batch_size,
+        "learning_rate": learning_rate,
+        "optimizer": "Adam",
+        "scheduler": "ReduceLROnPlateau",
+        "seed": seed,
+        "train_samples": len(train_dataset),
+        "val_samples": len(val_dataset),
+        "test_samples": len(test_dataset),
+    }
+
+    with open(config_path, "w", encoding="utf-8") as f:
+        json.dump(
+            config,
+            f,
+            indent=4,
+            ensure_ascii=False,
+        )    
 
     print(f"Train samples: {len(train_dataset)}")
     print(f"Val samples:   {len(val_dataset)}")
@@ -216,7 +252,13 @@ def main():
         print("labels shape:", labels.shape)
         print("example video_ids:", video_ids[:2])
         break
+    
+    CHECK_ONLY = False
 
+    if CHECK_ONLY:
+        print("CHECK_ONLY=True -> kontrola dokončena, trénink se nespouští.")
+        return
+    
     model = ConvLSTM(
         in_channels=3,
         hidden_channels=16,
@@ -241,6 +283,8 @@ def main():
     best_val_loss = float("inf")
     best_val_acc = 0.0
     best_epoch = 0
+
+    history = []
 
     for epoch in range(num_epochs):
 
@@ -269,6 +313,34 @@ def main():
             f"Train Acc: {train_acc:.4f} | "
             f"Val Loss: {val_loss:.4f} | "
             f"Val Acc: {val_acc:.4f}"
+        )
+
+        history.append({
+            "epoch": epoch + 1,
+            "learning_rate": current_lr,
+            "train_loss": train_loss,
+            "train_acc": train_acc,
+            "val_loss": val_loss,
+            "val_acc": val_acc,
+        })
+
+        metrics_lines = [
+            "epoch,learning_rate,train_loss,train_acc,val_loss,val_acc"
+        ]
+
+        for row in history:
+            metrics_lines.append(
+                f"{row['epoch']},"
+                f"{row['learning_rate']},"
+                f"{row['train_loss']},"
+                f"{row['train_acc']},"
+                f"{row['val_loss']},"
+                f"{row['val_acc']}"
+         )
+
+        metrics_path.write_text(
+            "\n".join(metrics_lines) + "\n",
+            encoding="utf-8",
         )
 
         if val_loss < best_val_loss:
@@ -369,6 +441,17 @@ def main():
         device,
         class_names,
     )
+
+    with open(classification_report_path, "w", encoding="utf-8") as f:
+        f.write(class_report)
+
+    with open(wrong_predictions_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=["video_id", "true", "pred"],
+        )
+        writer.writeheader()
+        writer.writerows(wrong)
 
     # Textový report
     with open(
@@ -505,11 +588,7 @@ def main():
         f"Results saved to: {log_path}"
     )
 
-    csv_path = (
-        project_root
-        / "reports"
-        / "experiments.csv"
-    )
+    csv_path = project_root / "experiments.csv"
 
     experiment_data = {
         "dataset": dataset_version,
