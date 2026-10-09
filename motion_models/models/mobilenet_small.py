@@ -21,14 +21,14 @@ class MobileNetV3SmallBaseline(nn.Module):
 
         b, t, c, h, w = x.shape
 
-        x = x.view(b * t, c, h, w)          #(B*T, C, H, W)
-        x = self.feature_extractor(x)       #(B*T, 576, H', W')
-        x = self.pool(x)                    #(B*T, 576, 1, 1)
-        x = x.flatten(1)                    #(B*T, 576)
+        x = x.view(b * t, c, h, w)        
+        x = self.feature_extractor(x)      
+        x = self.pool(x)                    
+        x = x.flatten(1)                    
 
-        x = x.view(b, t, -1)                #(B, T, 576)
-        x = x.mean(dim=1)                   #temporal pooling
+        x = x.view(b, t, -1)                
+        x = x.mean(dim=1)                   
 
-        logits = self.classifier(x)         #(B, num_classes)
+        logits = self.classifier(x)         
 
         return logits
