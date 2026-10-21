@@ -14,6 +14,10 @@ from motion_models.inference.predict_video import (
     get_device,
 )
 
+from motion_models.inference.predict_r3d import (
+    preprocess_r3d,
+    load_r3d,
+)
 
 st.set_page_config(
     page_title="Prediction of Gymnastics",
@@ -27,9 +31,14 @@ st.divider()
 
 # Načtený model zůstává v paměti mezi jednotlivými analýzami.
 @st.cache_resource
-def get_cached_model():
+def get_cached_model(model_name):
     device = get_device()
-    model = load_model(device)
+
+    if model_name == "R3D-18":
+        model = load_r3d(device)
+    else:
+        model = load_model(device)
+    
     return model, device
 
 
@@ -43,8 +52,14 @@ def synchronize_device(device):
 st.subheader("Vstupní video")
 
 uploaded_file = st.file_uploader(
-    "Vyber video",
+    "Upload video",
     type=["mov", "mp4", "avi", "mkv"],
+)
+
+model_name = st.selectbox(
+    "Vyberte model",
+    ["MobileNetV3 Small + LSTM", "R3D-18"],
+    index=0,
 )
 
 if uploaded_file is not None:
@@ -78,11 +93,15 @@ if uploaded_file is not None:
                 decode_time = time.perf_counter() - start
 
                 start = time.perf_counter()
-                video_tensor = preprocess_frames(frames)
+                if model_name == "R3D-18":
+                    video_tensor = preprocess_r3d(frames)
+                else:
+                    video_tensor = preprocess_frames(frames)
                 preprocessing_time = time.perf_counter() - start
 
+
                 start = time.perf_counter()
-                model, device = get_cached_model()
+                model, device = get_cached_model(model_name)
                 model_load_time = time.perf_counter() - start
 
                 video_tensor = video_tensor.to(device)
@@ -126,7 +145,7 @@ if uploaded_file is not None:
             st.divider()
             st.subheader("Informace o zpracování")
 
-            st.write(f"Použitý model: MobileNetV3 Small + LSTM")
+            st.write(f"Použitý model: {model_name}")
             st.write(f"Výpočetní zařízení: {device}")
             st.write(f"Celková doba zpracování: {total_time:.3f} s")
             st.write(f"Doba inference: {inference_time:.3f} s")
