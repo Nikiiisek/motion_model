@@ -9,6 +9,9 @@ data/
 *.mov
 *.jpg
 *.png
+*.jpeg
+*.MOV
+*.MP4
 
 # Váhy modelu
 *.pt
