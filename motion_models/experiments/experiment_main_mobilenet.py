@@ -138,7 +138,7 @@ def main():
     class_names = ["J", "O", "P", "T"]
     num_classes = len(class_names)
 
-    batch_size = 8
+    batch_size = 12
     num_workers = 0
     num_epochs = 10
     learning_rate = 5e-4
@@ -231,7 +231,7 @@ def main():
     best_epoch = 0
 
     dataset_version = "split_subject_v3_224"
-    experiment_name = "batch8_seed123_10ep_224"
+    experiment_name = "batch12_seed123_10ep_224"
 
     report_root = Path(
         "/home/nikol/Documents/motion_model/motion_models/reports"
