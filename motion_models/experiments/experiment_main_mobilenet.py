@@ -198,7 +198,7 @@ def main():
         print("example video_ids:", video_ids[:2])
         break
 
-    CHECK_ONLY = True 
+    CHECK_ONLY = False 
 
     if CHECK_ONLY:
         print("\nCHECK_ONLY = True")
