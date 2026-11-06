@@ -1,5 +1,5 @@
 from pathlib import Path
-from sklearn.metrics import confusion_matrix, classification_report
+from sklearn.metrics import confusion_matrix, classification_report, f1_score
 
 import csv
 import json
@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 
 #from motion_models.data_utils.config import PROCESSED_DIR
 from motion_models.data_utils.dataset_fixedlen import FixedLenVideoDataset
-from motion_models.data_utils.transforms import get_train_transforms, get_val_transforms
+from motion_models.data_utils.transforms import get_train_transforms_224, get_val_transforms_224
 from motion_models.models.mobilenet_lstm import MobileNetV3SmallLSTM
 from motion_models.data_utils.seed import set_seed
 from motion_models.utils.experiment_logger import save_experiment_to_csv
@@ -54,6 +54,9 @@ def validate_one_epoch(model, loader, criterion, device):
     correct = 0
     total = 0
 
+    all_preds = []
+    all_labels = []
+
     for videos, labels, video_ids in loader:
         videos = videos.to(device)
         labels = labels.to(device)
@@ -67,10 +70,20 @@ def validate_one_epoch(model, loader, criterion, device):
         correct += (preds == labels).sum().item()
         total += labels.size(0)
 
+        all_preds.extend(preds.cpu().tolist())
+        all_labels.extend(labels.cpu().tolist())
+
     epoch_loss = running_loss / total
     epoch_acc = correct / total
 
-    return epoch_loss, epoch_acc
+    epoch_macro_f1 = f1_score(
+        all_labels, 
+        all_preds,
+        labels=list(range(model.classifier.out_features)), 
+        average="macro",
+        zero_division=0)
+
+    return epoch_loss, epoch_acc, epoch_macro_f1
 
 @torch.no_grad()
 def list_wrong_predictions(model, loader, device, class_names):
@@ -110,7 +123,7 @@ def main():
     print(f"Using device: {device}")
 
     data_root = Path(
-    "/home/nikol/Documents/dataset_private/processed_16f_subject_v2"
+    "/home/nikol/Documents/dataset_private/processed_16f_subject_v3_224"
 )
 
     print("data_root:", data_root)
@@ -122,7 +135,7 @@ def main():
     val_dir = data_root / "val"
     test_dir = data_root / "test"
 
-    class_names = ["T", "pase"]
+    class_names = ["J", "O", "P", "T"]
     num_classes = len(class_names)
 
     batch_size = 4
@@ -133,21 +146,21 @@ def main():
     train_dataset = FixedLenVideoDataset(
         root_dir=train_dir,
         class_names=class_names,
-        transform=get_train_transforms(),
+        transform=get_train_transforms_224(),
         augment=False,
     )
 
     val_dataset = FixedLenVideoDataset(
         root_dir=val_dir,
         class_names=class_names,
-        transform=get_val_transforms(),
+        transform=get_val_transforms_224(),
         augment=False,
     )
 
     test_dataset = FixedLenVideoDataset(
         root_dir=test_dir,
         class_names=class_names,
-        transform=get_val_transforms(),
+        transform=get_val_transforms_224(),
         augment=False,
     )
 
@@ -214,20 +227,20 @@ def main():
 
     best_val_loss = float("inf")
     best_val_acc = 0.0
+    best_val_macro_f1 = 0.0
     best_epoch = 0
 
-    dataset_version = "split_subject_v2"
-    experiment_name = "baseline_10ep"
+    dataset_version = "split_subject_v3_224"
+    experiment_name = "baseline_10ep_224"
 
     report_root = Path(
-        "/home/nikol/Documents/motion_modelsreports"
+        "/home/nikol/Documents/motion_model/motion_models/reports"
     )
 
     report_dir = (
         report_root
-        / "reports"
         / dataset_version
-        / "mobilenetv3_lstm"
+        / "mobilenetv3_lstm_224"
         / experiment_name
     )
 
@@ -247,7 +260,7 @@ def main():
         "classes": class_names,
         "num_classes": num_classes,
         "num_frames": 16,
-        "input_size": "112x112",
+        "input_size": "224x224",
         "pretrained": True,
         "augmentation": False,
         "epochs": num_epochs,
@@ -271,7 +284,7 @@ def main():
             model, train_loader, criterion, optimizer, device
         )
 
-        val_loss, val_acc = validate_one_epoch(
+        val_loss, val_acc, val_macro_f1 = validate_one_epoch(
             model, val_loader, criterion, device
         )
 
@@ -283,7 +296,8 @@ def main():
             f"Epoch [{epoch + 1}/{num_epochs}] | "
             f"LR: {current_lr:.6f} | "
             f"Train Loss: {train_loss:.4f} | Train Acc: {train_acc:.4f} | "
-            f"Val Loss: {val_loss:.4f} | Val Acc: {val_acc:.4f}"
+            f"Val Loss: {val_loss:.4f} | Val Acc: {val_acc:.4f} | "
+            f"Val Macro F1: {val_macro_f1:.4f}"
         )
 
         history.append({
@@ -293,11 +307,13 @@ def main():
             "train_acc": train_acc,
             "val_loss": val_loss,
             "val_acc": val_acc,
+            "val_macro_f1": val_macro_f1,
         })
 
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             best_val_acc = val_acc
+            best_val_macro_f1 = val_macro_f1
             best_epoch = epoch + 1
 
             torch.save(model.state_dict(), save_path)
@@ -305,7 +321,7 @@ def main():
             print(
                 f"Best model saved to: {save_path} "
                 f"(epoch {best_epoch}, val_loss={best_val_loss:.4f}, "
-                f"val_acc={best_val_acc:.4f})"
+                f"val_acc={best_val_acc:.4f}, val_macro_f1={best_val_macro_f1:.4f})"
             )
 
     print("Training finished.")
@@ -320,11 +336,12 @@ def main():
                 "train_acc",
                 "val_loss",
                 "val_acc",
+                "val_macro_f1",
             ],
         )
 
-    writer.writeheader()
-    writer.writerows(history)
+        writer.writeheader()
+        writer.writerows(history)
 
     print(f"Metrics saved to: {metrics_path}")
 
@@ -338,11 +355,15 @@ def main():
     )
 
 
-    test_loss, test_acc = validate_one_epoch(
+    test_loss, test_acc, test_macro_f1 = validate_one_epoch(
         model, test_loader, criterion, device
     )
 
-    print(f"Test Loss: {test_loss:.4f} | Test Acc: {test_acc:.4f}")
+    print(
+        f"Test Loss: {test_loss:.4f} | "
+        f"Test Acc: {test_acc:.4f} | "
+        f"Test Macro F1: {test_macro_f1:.4f}"
+    )
 
     all_preds = []
     all_labels = []
@@ -364,7 +385,7 @@ def main():
         f.write(f"Experiment: {experiment_name}\n")
         f.write("Model: MobileNetV3Small + LSTM\n")
         f.write("Augmentation: none\n")
-        f.write("Input size: 112x112\n")
+        f.write("Input size: 224x224\n")
         f.write(f"Epochs: {num_epochs}\n")
         f.write(f"Learning rate: {learning_rate}\n")
         f.write(f"Batch size: {batch_size}\n")
@@ -383,10 +404,12 @@ def main():
         f.write(f"Best Epoch: {best_epoch}\n")
         f.write(f"Best Val Loss: {best_val_loss:.4f}\n")
         f.write(f"Val acc at Best Epoch: {best_val_acc:.4f}\n")
+        f.write(f"Val Macro F1 at Best Epoch: {best_val_macro_f1:.4f}\n")
 
         f.write("\n")
         f.write(f"Test Loss: {test_loss:.4f}\n")
         f.write(f"Test Acc: {test_acc:.4f}\n")
+        f.write(f"Test Macro F1: {test_macro_f1:.4f}\n")
 
         f.write("\nConfusion Matrix:\n")
         f.write(str(confusion_matrix(all_labels, all_preds)))
@@ -433,7 +456,7 @@ def main():
 
 
 # Cesta k centrálnímu CSV se všemi experimenty
-    csv_path = report_root / "experiments.csv"
+    csv_path = report_root / "experiments_v3.csv"
 
 
     experiment_data = {
@@ -453,6 +476,7 @@ def main():
         "best_epoch": best_epoch,
         "best_val_loss": round(best_val_loss, 4),
         "best_val_acc": round(best_val_acc, 4),
+        "best_val_macro_f1": round(best_val_macro_f1, 4),
         "test_loss": round(test_loss, 4),
         "test_acc": round(test_acc, 4),
 
