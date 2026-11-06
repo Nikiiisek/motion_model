@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 
 #from motion_models.data_utils.config import PROCESSED_DIR
 from motion_models.data_utils.dataset_fixedlen import FixedLenVideoDataset
-from motion_models.data_utils.transforms import get_train_transforms_224, get_val_transforms_224
+from motion_models.data_utils.transforms import get_train_transforms, get_val_transforms
 from motion_models.models.mobilenet_lstm import MobileNetV3SmallLSTM
 from motion_models.data_utils.seed import set_seed
 from motion_models.utils.experiment_logger import save_experiment_to_csv
@@ -123,7 +123,7 @@ def main():
     print(f"Using device: {device}")
 
     data_root = Path(
-    "/home/nikol/Documents/dataset_private/processed_16f_subject_v3_224"
+    "/home/nikol/Documents/dataset_private/processed_16f_subject_v3_112"
 )
 
     print("data_root:", data_root)
@@ -146,21 +146,21 @@ def main():
     train_dataset = FixedLenVideoDataset(
         root_dir=train_dir,
         class_names=class_names,
-        transform=get_train_transforms_224(),
+        transform=get_train_transforms(),
         augment=False,
     )
 
     val_dataset = FixedLenVideoDataset(
         root_dir=val_dir,
         class_names=class_names,
-        transform=get_val_transforms_224(),
+        transform=get_val_transforms(),
         augment=False,
     )
 
     test_dataset = FixedLenVideoDataset(
         root_dir=test_dir,
         class_names=class_names,
-        transform=get_val_transforms_224(),
+        transform=get_val_transforms(),
         augment=False,
     )
 
@@ -198,7 +198,7 @@ def main():
         print("example video_ids:", video_ids[:2])
         break
 
-    CHECK_ONLY = False
+    CHECK_ONLY = True 
 
     if CHECK_ONLY:
         print("\nCHECK_ONLY = True")
@@ -230,8 +230,8 @@ def main():
     best_val_macro_f1 = 0.0
     best_epoch = 0
 
-    dataset_version = "split_subject_v3_224"
-    experiment_name = "baseline_10ep_224"
+    dataset_version = "split_subject_v3_112"
+    experiment_name = "baseline_10ep_112"
 
     report_root = Path(
         "/home/nikol/Documents/motion_model/motion_models/reports"
@@ -240,7 +240,7 @@ def main():
     report_dir = (
         report_root
         / dataset_version
-        / "mobilenetv3_lstm_224"
+        / "mobilenetv3_lstm_112"
         / experiment_name
     )
 
@@ -260,7 +260,7 @@ def main():
         "classes": class_names,
         "num_classes": num_classes,
         "num_frames": 16,
-        "input_size": "224x224",
+        "input_size": "112x112",
         "pretrained": True,
         "augmentation": False,
         "epochs": num_epochs,
@@ -385,7 +385,7 @@ def main():
         f.write(f"Experiment: {experiment_name}\n")
         f.write("Model: MobileNetV3Small + LSTM\n")
         f.write("Augmentation: none\n")
-        f.write("Input size: 224x224\n")
+        f.write("Input size: 112x112\n")
         f.write(f"Epochs: {num_epochs}\n")
         f.write(f"Learning rate: {learning_rate}\n")
         f.write(f"Batch size: {batch_size}\n")
