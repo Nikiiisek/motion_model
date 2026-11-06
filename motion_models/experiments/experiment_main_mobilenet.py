@@ -138,7 +138,7 @@ def main():
     class_names = ["J", "O", "P", "T"]
     num_classes = len(class_names)
 
-    batch_size = 4
+    batch_size = 8
     num_workers = 0
     num_epochs = 10
     learning_rate = 5e-4
@@ -198,7 +198,7 @@ def main():
         print("example video_ids:", video_ids[:2])
         break
 
-    CHECK_ONLY = True
+    CHECK_ONLY = False
 
     if CHECK_ONLY:
         print("\nCHECK_ONLY = True")
@@ -231,7 +231,7 @@ def main():
     best_epoch = 0
 
     dataset_version = "split_subject_v3_224"
-    experiment_name = "batch4_seed456_10ep_224"
+    experiment_name = "batch8_seed456_10ep_224"
 
     report_root = Path(
         "/home/nikol/Documents/motion_model/motion_models/reports"
