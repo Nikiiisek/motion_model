@@ -117,7 +117,7 @@ def list_wrong_predictions(model, loader, device, class_names):
     return wrong
 
 def main():
-    set_seed(123)
+    set_seed(456)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
@@ -138,7 +138,7 @@ def main():
     class_names = ["J", "O", "P", "T"]
     num_classes = len(class_names)
 
-    batch_size = 12
+    batch_size = 4
     num_workers = 0
     num_epochs = 10
     learning_rate = 5e-4
@@ -198,7 +198,7 @@ def main():
         print("example video_ids:", video_ids[:2])
         break
 
-    CHECK_ONLY = False 
+    CHECK_ONLY = True
 
     if CHECK_ONLY:
         print("\nCHECK_ONLY = True")
@@ -231,7 +231,7 @@ def main():
     best_epoch = 0
 
     dataset_version = "split_subject_v3_224"
-    experiment_name = "batch12_seed123_10ep_224"
+    experiment_name = "batch4_seed456_10ep_224"
 
     report_root = Path(
         "/home/nikol/Documents/motion_model/motion_models/reports"
@@ -268,7 +268,7 @@ def main():
         "learning_rate": learning_rate,
         "optimizer": "Adam",
         "scheduler": "ReduceLROnPlateau",
-        "seed": 123,
+        "seed": 456,
         "train_samples": len(train_dataset),
         "val_samples": len(val_dataset),
         "test_samples": len(test_dataset),
@@ -389,7 +389,7 @@ def main():
         f.write(f"Epochs: {num_epochs}\n")
         f.write(f"Learning rate: {learning_rate}\n")
         f.write(f"Batch size: {batch_size}\n")
-        f.write("Seed: 123\n")
+        f.write("Seed: 456\n")
 
         f.write("\nDataset sizes:\n")
         f.write(f"Train samples: {len(train_dataset)}\n")
@@ -467,7 +467,7 @@ def main():
         "epochs": num_epochs,
         "learning_rate": learning_rate,
         "batch_size": batch_size,
-        "seed": 123,
+        "seed": 456,
 
         "train_samples": len(train_dataset),
         "val_samples": len(val_dataset),
