@@ -1,5 +1,6 @@
 from pathlib import Path
 from sklearn.metrics import confusion_matrix, classification_report, f1_score
+from argparse import ArgumentParser
 
 import csv
 import json
@@ -117,7 +118,14 @@ def list_wrong_predictions(model, loader, device, class_names):
     return wrong
 
 def main():
-    set_seed(456)
+    parser = ArgumentParser()
+    parser.add_argument("--seed", type=int, default=456)
+    parser.add_argument("--weighted-loss", action="store_true")
+    parser.add_argument("--validation-only", action="store_true")
+    args = parser.parse_args()
+    seed = args.seed
+
+    set_seed(seed)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
@@ -213,6 +221,16 @@ def main():
 
     criterion = nn.CrossEntropyLoss()
 
+    class_weights = None
+    train_criterion = criterion
+
+    if args.weighted_loss:
+        train_class_counts = torch.tensor(
+            [69, 149, 338, 398],dtype=torch.float32, device=device
+        )
+        class_weights = train_class_counts.sum() / (num_classes * train_class_counts)
+        train_criterion = nn.CrossEntropyLoss(weight=class_weights)
+
     optimizer = torch.optim.Adam(
         model.parameters(),
         lr=learning_rate
@@ -231,7 +249,10 @@ def main():
     best_epoch = 0
 
     dataset_version = "split_subject_v3_224"
-    experiment_name = "batch12_seed456_10ep_224"
+    experiment_name = f"batch12_seed{seed}_10ep_224"
+
+    if args.weighted_loss:
+        experiment_name = f"batch12_seed{seed}_weighted_10ep_224"
 
     report_root = Path(
         "/home/nikol/Documents/motion_model/motion_models/reports"
@@ -244,7 +265,12 @@ def main():
         / experiment_name
     )
 
-    report_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        report_dir.mkdir(parents=True, exist_ok=False)
+    except FileExistsError:
+        raise SystemExit(
+            f"Report directory already exists: {report_dir}. Training aborted to avoid overwriting existing results."
+        ) from None
 
     save_path = report_dir / "best.pth"
     log_path = report_dir / "results.txt"
@@ -268,7 +294,8 @@ def main():
         "learning_rate": learning_rate,
         "optimizer": "Adam",
         "scheduler": "ReduceLROnPlateau",
-        "seed": 456,
+        "seed": seed,
+        "class_weights": class_weights.tolist() if class_weights is not None else None,
         "train_samples": len(train_dataset),
         "val_samples": len(val_dataset),
         "test_samples": len(test_dataset),
@@ -281,7 +308,7 @@ def main():
 
     for epoch in range(num_epochs):
         train_loss, train_acc = train_one_epoch(
-            model, train_loader, criterion, optimizer, device
+            model, train_loader, train_criterion, optimizer, device
         )
 
         val_loss, val_acc, val_macro_f1 = validate_one_epoch(
@@ -354,6 +381,29 @@ def main():
         )
     )
 
+    if args.validation_only:
+        all_labels = []
+        all_preds = []
+
+        model.eval()
+        with torch.no_grad():
+            for videos, labels, _ in val_loader:
+                outputs = model(videos.to(device))
+                all_preds.extend(outputs.argmax(dim=1).cpu().tolist())
+                all_labels.extend(labels.tolist())
+
+        val_report = classification_report(
+            all_labels,
+            all_preds,
+            labels=list(range(num_classes)),
+            target_names=class_names,
+            digits=4,
+            zero_division=0
+        )
+        val_report_path = report_dir / "validation_classification_report.txt"
+        val_report_path.write_text(val_report, encoding="utf-8")
+        print(f"Validation report saved to {val_report_path}:")
+        return
 
     test_loss, test_acc, test_macro_f1 = validate_one_epoch(
         model, test_loader, criterion, device
@@ -389,7 +439,7 @@ def main():
         f.write(f"Epochs: {num_epochs}\n")
         f.write(f"Learning rate: {learning_rate}\n")
         f.write(f"Batch size: {batch_size}\n")
-        f.write("Seed: 456\n")
+        f.write(f"Seed: {seed}\n")
 
         f.write("\nDataset sizes:\n")
         f.write(f"Train samples: {len(train_dataset)}\n")
@@ -467,7 +517,7 @@ def main():
         "epochs": num_epochs,
         "learning_rate": learning_rate,
         "batch_size": batch_size,
-        "seed": 456,
+        "seed": seed,
 
         "train_samples": len(train_dataset),
         "val_samples": len(val_dataset),
