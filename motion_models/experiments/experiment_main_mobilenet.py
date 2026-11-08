@@ -125,8 +125,10 @@ def main():
     parser.add_argument("--weighted-loss", action="store_true")
     parser.add_argument("--validation-only", action="store_true")
     parser.add_argument("--learning-rate", type=float, default=default_learning_rate)
+    parser.add_argument("--brightness-contrast", action="store_true")
     args = parser.parse_args()
     seed = args.seed
+    augmentation = "brightness_contrast" if args.brightness_contrast else "none"
 
     set_seed(seed)
 
@@ -158,7 +160,7 @@ def main():
         root_dir=train_dir,
         class_names=class_names,
         transform=get_train_transforms(),
-        augment=False,
+        augment=args.brightness_contrast,
     )
 
     val_dataset = FixedLenVideoDataset(
@@ -260,6 +262,9 @@ def main():
     if learning_rate != default_learning_rate:
         experiment_name = f"{experiment_name}_lr{learning_rate}"
 
+    if args.brightness_contrast:
+        experiment_name = f"{experiment_name}_{augmentation}"
+
     report_root = Path(
         "/home/nikol/Documents/motion_model/motion_models/reports"
     )
@@ -294,7 +299,8 @@ def main():
         "num_frames": 16,
         "input_size": "224x224",
         "pretrained": True,
-        "augmentation": False,
+        "augmentation": args.brightness_contrast,
+        "augmentation_type": augmentation,
         "epochs": num_epochs,
         "batch_size": batch_size,
         "learning_rate": learning_rate,
@@ -440,7 +446,7 @@ def main():
         f.write(f"Dataset version: {dataset_version}\n")
         f.write(f"Experiment: {experiment_name}\n")
         f.write("Model: MobileNetV3Small + LSTM\n")
-        f.write("Augmentation: none\n")
+        f.write(f"Augmentation: {augmentation}\n")
         f.write("Input size: 224x224\n")
         f.write(f"Epochs: {num_epochs}\n")
         f.write(f"Learning rate: {learning_rate}\n")
@@ -519,7 +525,7 @@ def main():
         "dataset": dataset_version,
         "model": "MobileNetV3Small_LSTM",
         "experiment": experiment_name,
-        "augmentation": "none",
+        "augmentation": augmentation,
         "epochs": num_epochs,
         "learning_rate": learning_rate,
         "batch_size": batch_size,
