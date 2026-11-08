@@ -118,10 +118,13 @@ def list_wrong_predictions(model, loader, device, class_names):
     return wrong
 
 def main():
+    default_learning_rate = 5e-4
+
     parser = ArgumentParser()
     parser.add_argument("--seed", type=int, default=456)
     parser.add_argument("--weighted-loss", action="store_true")
     parser.add_argument("--validation-only", action="store_true")
+    parser.add_argument("--learning-rate", type=float, default=default_learning_rate)
     args = parser.parse_args()
     seed = args.seed
 
@@ -149,7 +152,7 @@ def main():
     batch_size = 12
     num_workers = 0
     num_epochs = 10
-    learning_rate = 5e-4
+    learning_rate = args.learning_rate
 
     train_dataset = FixedLenVideoDataset(
         root_dir=train_dir,
@@ -253,6 +256,9 @@ def main():
 
     if args.weighted_loss:
         experiment_name = f"batch12_seed{seed}_weighted_10ep_224"
+
+    if learning_rate != default_learning_rate:
+        experiment_name = f"{experiment_name}_lr{learning_rate}"
 
     report_root = Path(
         "/home/nikol/Documents/motion_model/motion_models/reports"
