@@ -125,6 +125,7 @@ def main():
     parser.add_argument("--weighted-loss", action="store_true")
     parser.add_argument("--validation-only", action="store_true")
     parser.add_argument("--learning-rate", type=float, default=default_learning_rate)
+    parser.add_argument("--weight-decay", type=float, default=0.0)
     parser.add_argument("--brightness-contrast", action="store_true")
     args = parser.parse_args()
     seed = args.seed
@@ -238,7 +239,8 @@ def main():
 
     optimizer = torch.optim.Adam(
         model.parameters(),
-        lr=learning_rate
+        lr=learning_rate,
+        weight_decay=args.weight_decay
     )
 
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
@@ -261,6 +263,9 @@ def main():
 
     if learning_rate != default_learning_rate:
         experiment_name = f"{experiment_name}_lr{learning_rate}"
+
+    if args.weight_decay != 0.0:
+        experiment_name = f"{experiment_name}_wd{args.weight_decay}"
 
     if args.brightness_contrast:
         experiment_name = f"{experiment_name}_{augmentation}"
@@ -304,6 +309,7 @@ def main():
         "epochs": num_epochs,
         "batch_size": batch_size,
         "learning_rate": learning_rate,
+        "weight_decay": args.weight_decay,
         "optimizer": "Adam",
         "scheduler": "ReduceLROnPlateau",
         "seed": seed,
